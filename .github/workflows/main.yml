@@ -1,4 +1,4 @@
-name: Build Arcadium OG9 Clean APK
+name: Build Arcadium OG9 Signed APK
 
 on:
   workflow_dispatch:
@@ -19,13 +19,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # GitHub Ubuntu runners already contain the Android SDK.
-      # Do not use the older android-actions/setup-android@v3:
-      # it attempts to install the discontinued 'tools' SDK package.
       - name: Check project and Android SDK
         shell: bash
         run: |
-          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
           test -f app/build.gradle
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/arcadium/og9/MainActivity.java
@@ -37,12 +33,49 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Build APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Restore private signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ARCADIUM_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ARCADIUM_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo 'Missing ARCADIUM_KEYSTORE_BASE64 secret'; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo 'Missing ARCADIUM_KEYSTORE_PASSWORD secret'; exit 1; }
+          mkdir -p "$RUNNER_TEMP/arcadium-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/arcadium-signing/arcadium.jks"
+          chmod 600 "$RUNNER_TEMP/arcadium-signing/arcadium.jks"
+          keytool -list -keystore "$RUNNER_TEMP/arcadium-signing/arcadium.jks" -storepass "$KEYSTORE_PASSWORD" > /dev/null
+          echo 'Signing key is readable.'
 
-      - name: Upload APK
+      - name: Build unsigned release APK
+        shell: bash
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Sign and verify release APK
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ARCADIUM_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -name '*unsigned.apk' -print -quit)
+          test -n "$APK" || { echo 'Unsigned release APK not found'; exit 1; }
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$BUILD_TOOLS/zipalign" && test -x "$BUILD_TOOLS/apksigner"
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$APK" "$RUNNER_TEMP/og9-aligned.apk"
+          mkdir -p dist
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/arcadium-signing/arcadium.jks" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEYSTORE_PASSWORD \
+            --out dist/Arcadium-OG9-Signed.apk \
+            "$RUNNER_TEMP/og9-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose dist/Arcadium-OG9-Signed.apk
+          echo 'Signed APK verified.'
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Arcadium-OG9-Clean-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Arcadium-OG9-Signed-APK
+          path: dist/Arcadium-OG9-Signed.apk
           if-no-files-found: error
