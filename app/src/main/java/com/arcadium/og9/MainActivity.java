@@ -12,12 +12,34 @@ import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.net.Uri;
+import android.media.ToneGenerator;
+import android.media.AudioManager;
 import java.io.InputStream;
 import java.net.URLConnection;
 
 public final class MainActivity extends Activity {
     private WebView web;
     private volatile int held = 0;
+    // Native SFX avoid WebView's audio-unlock restrictions on physical controllers.
+    private ToneGenerator sfx;
+    private long lastSoundAt = 0L;
+    private synchronized void playTone(int tone, int duration) {
+        try { if (sfx != null) sfx.startTone(tone, duration); }
+        catch (RuntimeException ignored) { }
+    }
+    private void sfxOnButton(int code) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastSoundAt < 90) return;
+        lastSoundAt = now;
+        if (code == KeyEvent.KEYCODE_BUTTON_A)
+            playTone(ToneGenerator.TONE_PROP_BEEP, 42);
+        else if (code == KeyEvent.KEYCODE_BUTTON_X)
+            playTone(ToneGenerator.TONE_PROP_ACK, 110);
+        else if (code == KeyEvent.KEYCODE_BUTTON_B)
+            playTone(ToneGenerator.TONE_PROP_BEEP2, 55);
+        else if (code == KeyEvent.KEYCODE_BUTTON_Y)
+            playTone(ToneGenerator.TONE_PROP_PROMPT, 70);
+    }
     private static final String HOST = "appassets.androidplatform.net";
     // Bit positions are fixed in assets/controller.js.
     private static int bit(int code) {
@@ -39,6 +61,11 @@ public final class MainActivity extends Activity {
     }
     public class ButtonBridge {
         @JavascriptInterface public int getHeld() { return held; }
+        @JavascriptInterface public void playSfx(String event) {
+            if ("crash".equals(event)) playTone(ToneGenerator.TONE_PROP_NACK, 190);
+            else if ("win".equals(event)) playTone(ToneGenerator.TONE_PROP_ACK, 170);
+            else if ("start".equals(event)) playTone(ToneGenerator.TONE_PROP_BEEP, 75);
+        }
     }
     private void fullscreen() {
         getWindow().getDecorView().setSystemUiVisibility(
@@ -49,6 +76,9 @@ public final class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); fullscreen();
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        try { sfx = new ToneGenerator(AudioManager.STREAM_MUSIC, 65); }
+        catch (RuntimeException ignored) { sfx = null; }
         web = new WebView(this); web.setBackgroundColor(0xff030815);
         web.setFocusable(true); web.setFocusableInTouchMode(true);
         WebSettings s = web.getSettings();
@@ -88,7 +118,10 @@ public final class MainActivity extends Activity {
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         int index = bit(event.getKeyCode());
         if (index >= 0) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) held |= (1 << index);
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                held |= (1 << index);
+                if (event.getRepeatCount() == 0) sfxOnButton(event.getKeyCode());
+            }
             else if (event.getAction() == KeyEvent.ACTION_UP) held &= ~(1 << index);
             return true;
         }
@@ -103,6 +136,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onDestroy() {
         held = 0;
+        if (sfx != null) { sfx.release(); sfx = null; }
         if (web != null) { web.destroy(); web = null; }
         super.onDestroy();
     }
