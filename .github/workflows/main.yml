@@ -45,7 +45,18 @@ jobs:
           mkdir -p "$RUNNER_TEMP/arcadium-signing"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/arcadium-signing/arcadium.jks"
           chmod 600 "$RUNNER_TEMP/arcadium-signing/arcadium.jks"
-          keytool -list -keystore "$RUNNER_TEMP/arcadium-signing/arcadium.jks" -storepass "$KEYSTORE_PASSWORD" > /dev/null
+          echo "Decoded keystore size: $(wc -c < "$RUNNER_TEMP/arcadium-signing/arcadium.jks") bytes"
+          # Report only a classified failure; never print the key, password or raw keystore.
+          if ! KEYTOOL_OUTPUT=$(keytool -list -keystore "$RUNNER_TEMP/arcadium-signing/arcadium.jks" -storepass "$KEYSTORE_PASSWORD" 2>&1); then
+            if echo "$KEYTOOL_OUTPUT" | grep -Eiq 'password was incorrect|password verification failed|keystore was tampered|integrity check failed|UnrecoverableKeyException'; then
+              echo 'ERROR: The keystore password does not match this keystore (or the keystore was corrupted).'
+            elif echo "$KEYTOOL_OUTPUT" | grep -Eiq 'Invalid keystore format|DerInputStream|toDerInputStream|Unrecognized keystore'; then
+              echo 'ERROR: Decoded file is not a readable Java keystore. Check the Base64 source file.'
+            else
+              echo 'ERROR: keytool cannot read the decoded keystore. Verify the correct .jks was encoded and the password matches.'
+            fi
+            exit 1
+          fi
           echo 'Signing key is readable.'
 
       - name: Build unsigned release APK
