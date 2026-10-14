@@ -1,0 +1,74 @@
+[
+  {
+    "title": "Home Run Derby",
+    "file": "arcadium_home_run_v7_matching_team_colors.html",
+    "cover": "covers/cover0.jpg",
+    "color": "#fa3758",
+    "category": "SPORTS",
+    "ready": true
+  },
+  {
+    "title": "Gridiron Riot",
+    "file": "gridiron_riot_v16_spaced_defense.html",
+    "cover": "covers/cover1.jpg",
+    "color": "#f7a73b",
+    "category": "SPORTS",
+    "ready": true
+  },
+  {
+    "title": "Neon Cycle Riot",
+    "file": "neon_cycle_riot_true_tron.html",
+    "cover": "covers/cover2.jpg",
+    "color": "#00d6fc",
+    "category": "ARCADE",
+    "ready": true
+  },
+  {
+    "title": "Tankageddon",
+    "file": "tankageddon_ground_combat_v2.html",
+    "cover": "covers/cover3.jpg",
+    "color": "#7ce87c",
+    "category": "ARCADE",
+    "ready": true
+  },
+  {
+    "title": "Galactic Riot",
+    "file": "galactic_riot_balanced_v3.html",
+    "cover": "covers/cover4.jpg",
+    "color": "#a57dff",
+    "category": "ARCADE",
+    "ready": true
+  },
+  {
+    "title": "Crash Landing",
+    "file": "crash_landing_challenge_v2.html",
+    "cover": "covers/cover5.jpg",
+    "color": "#ffbc61",
+    "category": "SKILL",
+    "ready": true
+  },
+  {
+    "title": "Rockageddon",
+    "file": "rockageddon_arcadium_collision_fixed.html",
+    "cover": "covers/cover6.jpg",
+    "color": "#ff6b9e",
+    "category": "ARCADE",
+    "ready": true
+  },
+  {
+    "title": "Brick Riot",
+    "file": "brick_riot_2026_visual_test.html",
+    "cover": "covers/cover7.jpg",
+    "color": "#64f2ce",
+    "category": "ARCADE",
+    "ready": true
+  },
+  {
+    "title": "Ghost Grab",
+    "file": "ghost_grab.html",
+    "cover": "covers/cover8.jpg",
+    "color": "#7ad7f6",
+    "category": "ARCADE",
+    "ready": true
+  }
+]
